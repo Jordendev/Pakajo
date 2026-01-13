@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: pakajo
+    env: node
+    branch: main
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    root: "/"
+    autoDeploy: true
