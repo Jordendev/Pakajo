@@ -6,4 +6,9 @@ services:
     buildCommand: "npm install"
     startCommand: "npm start"
     root: "/"
+    rootDirectory: "."
+    healthCheckPath: "/"
     autoDeploy: true
+    env:
+      - key: NODE_ENV
+        value: production
