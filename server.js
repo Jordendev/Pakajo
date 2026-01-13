@@ -3,10 +3,10 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const mammoth = require('mammoth');
-const pdfjsLib = require('pdfjs-dist');
+let pdfjsLib; // wird beim Start asynchron geladen
 
-// Setze PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
+// Worker-URL (CDN bleibt zur Kompatibilität)
+const PDF_WORKER_CDN = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -80,6 +80,20 @@ app.get('/', (req, res) => {
   res.send('PDF/DOCX Extractor is running!');
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Initialisierung: PDF.js asynchron laden und Server starten
+async function init() {
+  try {
+    const mod = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsLib = mod.default || mod;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_CDN;
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to initialize PDF.js:', err);
+    process.exit(1);
+  }
+}
+
+init();
