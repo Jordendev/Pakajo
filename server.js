@@ -3,6 +3,7 @@ const axios = require('axios');
 const mammoth = require('mammoth');
 const fs = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 let pdfjsLib = null;
 
 // Initialize pdfjs (prefer legacy build in Node.js). This is async because
@@ -174,10 +175,36 @@ app.get('/extract', async (req, res) => {
       baseName = baseName.replace(/[\/\\:?<>|"*]/g, '-');
 
       const outPath = path.join(extractedDir, `${baseName}.txt`);
-      await fs.writeFile(outPath, text, 'utf8');
-      console.log('Saved extracted text to', outPath);
-      // Provide hint to caller where the file was saved
+
+      // If file exists, compare hashes. If different -> backup (.bak.<timestamp>) and overwrite.
+      let status = 'created';
+      try {
+        await fs.access(outPath);
+        // file exists
+        const existing = await fs.readFile(outPath, 'utf8');
+        const existingHash = crypto.createHash('sha256').update(existing, 'utf8').digest('hex');
+        const newHash = crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+        if (existingHash === newHash) {
+          status = 'unchanged';
+          console.log('Extracted text identical to existing file, not overwriting:', outPath);
+        } else {
+          const bakPath = `${outPath}.bak.${new Date().toISOString().replace(/[:.]/g, '')}`;
+          await fs.rename(outPath, bakPath);
+          status = 'updated';
+          res.set('X-Extracted-Backup', bakPath);
+          console.log('Existing file backed up to', bakPath);
+          await fs.writeFile(outPath, text, 'utf8');
+          console.log('Overwrote file with new extraction:', outPath);
+        }
+      } catch (e) {
+        // does not exist -> create
+        await fs.writeFile(outPath, text, 'utf8');
+        console.log('Saved extracted text to', outPath);
+      }
+
+      // Provide hint to caller where the file was saved and status
       res.set('X-Extracted-File', outPath);
+      res.set('X-Extracted-Status', status);
     } catch (e) {
       console.warn('Failed to save extracted text:', e && e.message ? e.message : e);
     }
