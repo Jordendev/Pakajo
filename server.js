@@ -188,9 +188,15 @@ app.get('/extract', async (req, res) => {
           status = 'unchanged';
           console.log('Extracted text identical to existing file, not overwriting:', outPath);
         } else {
-          const bakPath = `${outPath}.bak.${new Date().toISOString().replace(/[:.]/g, '')}`;
+          // Ensure backup directory exists at ./extracted_bak
+          const backupDir = path.join(__dirname, 'extracted_bak');
+          await fs.mkdir(backupDir, { recursive: true });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '');
+          const bakName = `${baseName}.bak.${timestamp}.txt`;
+          const bakPath = path.join(backupDir, bakName);
           await fs.rename(outPath, bakPath);
           status = 'updated';
+          // Return relative path in header for clarity
           res.set('X-Extracted-Backup', bakPath);
           console.log('Existing file backed up to', bakPath);
           await fs.writeFile(outPath, text, 'utf8');
