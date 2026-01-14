@@ -188,7 +188,7 @@ app.get('/extract', async (req, res) => {
 });
 
 // Build/version tag for runtime verification
-const BUILD_TAG = 'enhanced-fallback-20260114';
+const BUILD_TAG = 'enhanced-fallback-20260114-2';
 
 // Health-Check
 app.get('/', (req, res) => {
