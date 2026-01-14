@@ -171,6 +171,24 @@ app.get('/extract', async (req, res) => {
         }
       }
 
+      // Detect common signed-URL JWT errors (Supabase returns JSON with InvalidJWT / exp failure)
+      const previewLower = (upstreamBodyPreview || '').toLowerCase();
+      const isInvalidJwt = upstreamStatus === 400 && (
+        previewLower.includes('invalidjwt') ||
+        previewLower.includes('"exp"') ||
+        /exp.*(fail|expired)/i.test(upstreamBodyPreview || '')
+      );
+
+      if (isInvalidJwt) {
+        return res.status(401).json({
+          error: 'Upstream token invalid or expired',
+          upstreamStatus,
+          upstreamContentType: upstreamType,
+          upstreamBodyPreview,
+          suggestion: 'Regenerate signed URL or refresh token'
+        });
+      }
+
       return res.status(502).json({
         error: 'Upstream fetch failed',
         upstreamStatus,
