@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
 const mammoth = require('mammoth');
+const fs = require('fs').promises;
+const path = require('path');
 let pdfjsLib = null;
 
 // Initialize pdfjs (prefer legacy build in Node.js). This is async because
@@ -147,6 +149,37 @@ app.get('/extract', async (req, res) => {
         contentType,
         finalUrl
       });
+    }
+
+    try {
+      // Save extracted text to ./extracted/<original-filename-without-ext>.txt
+      const extractedDir = path.join(__dirname, 'extracted');
+      await fs.mkdir(extractedDir, { recursive: true });
+
+      let baseName = '';
+      if (filename) {
+        baseName = filename.replace(/\.[^.]+$/, '');
+      } else if (finalUrl) {
+        try {
+          baseName = decodeURIComponent(new URL(finalUrl).pathname.split('/').pop() || 'extracted');
+        } catch (e) {
+          baseName = 'extracted';
+        }
+      } else {
+        baseName = 'extracted';
+      }
+
+      baseName = baseName.replace(/[\r\n]/g, '').trim();
+      // Replace characters not safe for filenames on most systems
+      baseName = baseName.replace(/[\/\\:?<>|"*]/g, '-');
+
+      const outPath = path.join(extractedDir, `${baseName}.txt`);
+      await fs.writeFile(outPath, text, 'utf8');
+      console.log('Saved extracted text to', outPath);
+      // Provide hint to caller where the file was saved
+      res.set('X-Extracted-File', outPath);
+    } catch (e) {
+      console.warn('Failed to save extracted text:', e && e.message ? e.message : e);
     }
 
     res.set('Content-Type', 'text/plain; charset=utf-8');
