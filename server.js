@@ -157,11 +157,25 @@ app.get('/extract', async (req, res) => {
       // Upstream returned an error (e.g. signed URL rejection). Surface useful debug info.
       const upstreamStatus = err.response.status;
       const upstreamType = (err.response.headers && (err.response.headers['content-type'] || err.response.headers['Content-Type'])) || '';
+      let upstreamBodyPreview;
+      const body = err.response.data;
+      if (typeof body === 'string') {
+        upstreamBodyPreview = body.slice(0, 200);
+      } else if (Buffer.isBuffer(body)) {
+        upstreamBodyPreview = body.toString('utf8', 0, 200);
+      } else {
+        try {
+          upstreamBodyPreview = JSON.stringify(body).slice(0, 200);
+        } catch (e) {
+          upstreamBodyPreview = undefined;
+        }
+      }
+
       return res.status(502).json({
         error: 'Upstream fetch failed',
         upstreamStatus,
         upstreamContentType: upstreamType,
-        upstreamBodyPreview: typeof err.response.data === 'string' ? err.response.data.slice(0, 200) : undefined,
+        upstreamBodyPreview,
         message: err.message
       });
     }
